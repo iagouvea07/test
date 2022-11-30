@@ -1,0 +1,6 @@
+- hosts:
+  user: root
+  become: yes
+  tasks:
+    - name: Backup do ambiente
+      shell: tar -czvf /opt/otrs/app_backup.tar.gz --exclude='tar/tmp/*' --exclude='var/article/*' /opt/otrs/*
