@@ -1,0 +1,6 @@
+- hosts: vm
+  user: root
+  become: yes
+  tasks:
+  -name: Atualizando pacotes
+    shell: apt update 
