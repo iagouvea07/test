@@ -2,5 +2,5 @@
   user: root
   become: yes
   tasks:
-  -name: Atualizando pacotes
+  - name: Atualizando pacotes
     shell: apt update 
