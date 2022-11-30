@@ -1,0 +1,82 @@
+- hosts: vm
+  become: true
+  tasks:
+  - name: Instalando dependências
+    package:
+      name: ['apache2', 'mariadb-client', 'mariadb-server', 'cpanminus']
+      state: present
+  - name: Baixando pasta
+    get_url:
+      url:  https://download.znuny.org/releases/znuny-latest-6.0.tar.gz
+      dest: /opt/
+  - name: Extraindo pasta
+    shell:
+      tar xvf /opt/znuny-latest-6.0.tar.gz
+  - name: Renomeando pasta
+    shell:
+      mv znuny-6.0.47 /opt/otrs
+  - name: Copiando arquivo de configuração
+    copy:
+      src: /opt/otrs/Kernel/Config.pm.dist
+      dest: /opt/otrs/Kernel/Config.pm
+      remote_src: yes
+  - name: Criando usuarios
+    command: useradd -d /opt/otrs -c 'Znuny user' -g www-data -s /bin/bash -M -N otrs
+  - name: Alterando permissões
+    command: /opt/otrs/bin/otrs.SetPermissions.pl
+  - name: Instalando Módulos Perl
+    package:
+      name: ['libapache2-mod-perl2', 'libdbd-mysql-perl', 'libtimedate-perl', 'libnet-dns-perl', 'libnet-ldap-perl', 'libio-socket-ssl-perl', 'libpdf-api2-perl', 'libsoap-lite-perl', 'libtext-csv-xs-perl', 'libjson-xs-perl', 'libapache-dbi-perl', 'libxml-libxml-perl', 'libxml-libxslt-perl', 'libyaml-perl', 'libarchive-zip-perl', 'libcrypt-eksblowfish-perl', 'libencode-hanextra-perl', ' libmail-imapclient-perl', 'libtemplate-perl', 'libdatetime-perl', 'libmoo-perl', 'bash-completion', 'libyaml-libyaml-perl', 'libjavascript-minifier-xs-perl',  'libcss-minifier-xs-perl',  'libauthen-sasl-perl', 'libauthen-ntlm-perl']
+      state: present
+  - name: Criando link simbólico Apache
+    shell: ln -s /opt/otrs/scripts/apache2-httpd.include.conf /etc/apache2/conf-available/zzz_znuny.conf
+  - name: Definindo parâmetros mariadb
+    shell: echo '
+      [client]\n
+      max_allowed_packet=256M\n
+      \n
+      [mysqld]\n
+      innodb_file_per_table\n
+      innodb_log_file_size = 256M\n
+      max_allowed_packet=256M' > /etc/mysql/mariadb.conf.d/50-znuny_config.cnf
+  - name: Habilitando modulos apache (Ubuntu)
+    shell: |
+      a2enmod perl headers deflate filter cgi
+      a2dismod mpm_event
+      a2enmod mpm_prefork
+      a2enconf zzz_znuny
+  - name: Ativando serviços mariadb
+    service:
+     name: mariadb
+     state: restarted
+     enabled: yes
+  - name: Ativando serviços apache2
+    service:
+      name: apache2
+      state: restarted
+      enabled: yes
+  - name: Copiando aaa_base
+    copy:
+      src: /opt/otrs/var/cron/aaa_base.dist
+      dest: /opt/otrs/var/cron/aaa_base
+      remote_src: yes
+  - name: Copiando otrs_daemon
+    copy:
+      src: /opt/otrs/var/cron/otrs_daemon.dist
+      dest: /opt/otrs/var/cron/otrs_daemon
+      remote_src: yes
+  - name: Instalando PyMySQL
+    package:
+      name: python3-pymysql
+      state: present
+  - name: Criando usuario do banco de dados
+    shell: mysql -u root -e "CREATE USER 'znuny'@'localhost' IDENTIFIED BY '111111';"
+  - name: Garantindo privilégios
+    shell: mysql -u root -e "GRANT ALL ON znuny.* to 'znuny'@'localhost';"
+  - name: Criando banco de dados
+    mysql_db:
+      name: znuny
+      encoding: utf8
+      state: present
+      login_user: znuny
+      login_password: 111111      
